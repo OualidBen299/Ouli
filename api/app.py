@@ -7,16 +7,14 @@ import numpy as np
 import base64
 from PIL import Image, ImageFilter
 import io
-import easyocr
+import pytesseract
 from collections import deque
 import requests
 
-# Hide output
+# Setup logging
 logging.getLogger('werkzeug').disabled = True
-logging.getLogger('easyocr').disabled = True
 app = Flask(__name__)
 CORS(app)
-ocr = easyocr.Reader(['en'])
 
 def hide_output_after_start():
     sys.stdout = open('NUL', 'w') if sys.platform == 'win32' else open('/dev/null', 'w')
@@ -48,18 +46,18 @@ def unsharp_filter(image):
 def bfs(visited, array, node):
     def getNeighboor(array, node):
         neighboors = []
-        if node[0] + 1 < array.shape[0]:
-            if array[node[0] + 1, node[1]] == 0:
-                neighboors.append((node[0] + 1, node[1]))
-        if node[0] - 1 >= 0:
-            if array[node[0] - 1, node[1]] == 0:
-                neighboors.append((node[0] - 1, node[1]))
-        if node[1] + 1 < array.shape[1]:
-            if array[node[0], node[1] + 1] == 0:
-                neighboors.append((node[0], node[1] + 1))
-        if node[1] - 1 >= 0:
-            if array[node[0], node[1] - 1] == 0:
-                neighboors.append((node[0], node[1] - 1))
+        if node[0]+1 < array.shape[0]:
+            if array[node[0]+1,node[1]] == 0:
+                neighboors.append((node[0]+1,node[1]))
+        if node[0]-1 >= 0:
+            if array[node[0]-1,node[1]] == 0:
+                neighboors.append((node[0]-1,node[1]))
+        if node[1]+1 < array.shape[1]:
+            if array[node[0],node[1]+1] == 0:
+                neighboors.append((node[0],node[1]+1))
+        if node[1]-1 >= 0:
+            if array[node[0],node[1]-1] == 0:
+                neighboors.append((node[0],node[1]-1))
         return neighboors
 
     queue = deque([node])
@@ -85,15 +83,14 @@ def removeIsland(img_arr, threshold):
             for i in visited:
                 img_arr[i[0], i[1]] = 2
         visited.clear()
+
     img_arr = np.where(img_arr == 2, 0, img_arr)
     return img_arr
 
 def extract_numbers(image):
     try:
-        results = ocr.readtext(image)
-        if not results:
-            return None
-        numbers = ''.join([result[1] for result in results if result[1].isdigit()])
+        text = pytesseract.image_to_string(image, config='--psm 6')
+        numbers = ''.join(filter(str.isdigit, text))
         return numbers if len(numbers) == 3 else None
     except Exception as e:
         print(f"Error extracting numbers: {e}")
