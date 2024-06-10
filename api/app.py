@@ -7,17 +7,13 @@ import numpy as np
 import base64
 from PIL import Image, ImageFilter
 import io
-from paddleocr import PaddleOCR
+import pytesseract
 from collections import deque
 
 logging.getLogger('werkzeug').disabled = True
-logging.getLogger('paddle').disabled = True
-logging.getLogger('ppocr').disabled = True  # Disable PaddleOCR logs
 
 app = Flask(__name__)
 CORS(app)
-
-ocr = PaddleOCR(use_angle_cls=True, lang='en')
 
 def hide_output_after_start():
     sys.stdout = open('NUL', 'w') if sys.platform == 'win32' else open('/dev/null', 'w')
@@ -91,10 +87,8 @@ def removeIsland(img_arr, threshold):
 
 def extract_numbers(image):
     try:
-        results = ocr.ocr(image, cls=True)
-        if results is None:
-            return None
-        numbers = ''.join([result[1][0] for line in results for result in line if result[1][0].isdigit()])
+        text = pytesseract.image_to_string(image)
+        numbers = ''.join(filter(str.isdigit, text))
         return numbers if len(numbers) == 3 else None
     except Exception as e:
         print(f"Error extracting numbers: {e}")
