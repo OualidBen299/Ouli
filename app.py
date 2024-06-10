@@ -9,9 +9,10 @@ from PIL import Image, ImageFilter
 import io
 import easyocr
 from collections import deque
-import requests
-import keyboard
-import sys
+import os
+
+# Environment variable for lmdb pure python implementation
+os.environ['LMDB_PURE'] = '1'
 
 # Suppress logging for specified libraries
 logging.getLogger('werkzeug').disabled = True
