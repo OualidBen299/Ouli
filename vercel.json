@@ -1,14 +1,9 @@
 {
-  "builds": [
-    { "src": "api/app.py", "use": "@vercel/python" }
-  ],
-  "functions": {
-    "api/*": {
-      "memory": 512,
-      "maxDuration": 10
-    }
-  },
-  "routes": [
-    { "src": "/(.*)", "dest": "/api/app.py" }
-  ]
+	"version": 2,
+	"builds": [
+		{"src": "api/app.py", "use": "@vercel/python"}
+	],
+	"routes": [
+		{"src": "/api/CrossCaptcha", "dest": "api/app.py"}
+	]
 }
