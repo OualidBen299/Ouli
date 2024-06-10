@@ -9,15 +9,19 @@ from PIL import Image, ImageFilter
 import io
 import pytesseract
 from collections import deque
+import requests
+import keyboard
+import sys
 
 logging.getLogger('werkzeug').disabled = True
+logging.getLogger('pytesseract').disabled = True
 
 app = Flask(__name__)
 CORS(app)
 
 def hide_output_after_start():
     sys.stdout = open('NUL', 'w') if sys.platform == 'win32' else open('/dev/null', 'w')
-
+    
 print(" * Starting Of Cross Captcha v1.0")
 print(f" * Captcha Cross v1.0 is: \033[92mON\033[0m")
 print(f" * If you want to stop Cross Captcha click : \033[91mCTRL + C\033[0m")
@@ -58,7 +62,7 @@ def bfs(visited, array, node):
             if array[node[0],node[1]-1] == 0:
                 neighboors.append((node[0],node[1]-1))
         return neighboors
-
+    
     queue = deque([node])
     visited.add(node)
     while queue:
@@ -87,9 +91,10 @@ def removeIsland(img_arr, threshold):
 
 def extract_numbers(image):
     try:
-        text = pytesseract.image_to_string(image)
-        numbers = ''.join(filter(str.isdigit, text))
-        return numbers if len(numbers) == 3 else None
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        _, thresholded = cv2.threshold(gray, 195, 255, cv2.THRESH_BINARY)
+        numbers = pytesseract.image_to_string(thresholded, config='--psm 6 digits').strip()
+        return numbers if len(numbers) == 3 and numbers.isdigit() else None
     except Exception as e:
         print(f"Error extracting numbers: {e}")
         return None
@@ -107,46 +112,37 @@ def ocr_route():
     base64_image_url = data.get('base64ImageUrl')
     if not base64_image_url:
         return jsonify({"error": "No image URL provided"}), 400
-
     image = decode_base64_image(base64_image_url)
     if image is None:
         return jsonify({"error": "Failed to decode image"}), 400
-
     steps = {}
     numbers, step_name, steps = check_for_solution(image, "original_image", steps)
     if numbers:
         return jsonify({"solution": numbers})
-
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     numbers, step_name, steps = check_for_solution(gray, "grayscale", steps)
     if numbers:
         return jsonify({"solution": numbers})
-
     unsharped = unsharp_filter(gray)
     numbers, step_name, steps = check_for_solution(unsharped, "unsharp_filter", steps)
     if numbers:
         return jsonify({"solution": numbers})
-
     median_filtered = cv2.medianBlur(unsharped, 3)
     numbers, step_name, steps = check_for_solution(median_filtered, "median_filter", steps)
     if numbers:
         return jsonify({"solution": numbers})
-
     thresholded = np.where(median_filtered > 195, 1, 0).astype(np.uint8) * 255
     numbers, step_name, steps = check_for_solution(thresholded, "thresholding", steps)
     if numbers:
         return jsonify({"solution": numbers})
-
     island_removed = removeIsland(thresholded // 255, 30) * 255
     numbers, step_name, steps = check_for_solution(island_removed, "remove_islands", steps)
     if numbers:
         return jsonify({"solution": numbers})
-
     final_processed = cv2.medianBlur(island_removed, 3)
     numbers, step_name, steps = check_for_solution(final_processed, "final_median_filter", steps)
     if numbers:
         return jsonify({"solution": numbers})
-
     return jsonify({"error": "Failed to extract numbers from the image", "steps": steps}), 400
 
 if __name__ == '__main__':
